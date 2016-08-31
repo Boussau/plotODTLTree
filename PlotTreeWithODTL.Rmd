@@ -1,0 +1,522 @@
+---
+title: "PlotTreeWithODTL"
+author: "Bastien Boussau"
+date: "31 August 2016"
+output: html_document
+---
+
+# Plotting gene originations, transfers, duplications and losses.
+
+In this notebook, we plot a species tree decorated with numbers of gene origination, duplication, transfer and loss.
+
+First, I define plotting functions, then I read and prepare the data for plotting, and finally we do the plot.
+
+
+
+```{r}
+setwd("~/data/plotODTLTree/")
+library(ape)
+library(RColorBrewer)
+library(R.utils)
+```
+
+## First, some useful plotting functions and tree handling functions
+```{r, cache=F}
+library(phytools)
+library(plotrix)
+
+# scaling branch lengths
+scaler = 1.0
+
+# function to add color bar
+# written by Liam J. Revell 2013
+# Modified by me to take coordinates and legend
+my.add.color.bar.legend<-function(textLegend, leg,cols,title=NULL,lims=c(0,1),digits=1,prompt=FALSE, x, y){
+  cex<-0.8
+  #Branch colors
+  X<-x+cbind(0:(length(cols)-1)/length(cols),1:length(cols)/length(cols))*(leg)
+	Y<-cbind(rep(y,length(cols)),rep(y,length(cols))) 		
+	lines(c(X[1,1],X[nrow(X),2]),c(Y[1,1],Y[nrow(Y),2]),lwd=4+2,lend=2) 
+	for(i in 1:length(cols)) lines(X[i,],Y[i,],col=cols[i],lwd=4,lend=2)
+	text(x=x,y=y,round(lims[1],digits),pos=3, cex=cex)
+	text(x=x+8*leg/5,y=y,round(lims[2],digits),pos=3, cex=cex)
+	if(is.null(title)) title<-"<->"
+	text(x=3.5*(2*x+leg)/5,y=y,title,pos=3)
+  text(x=X[nrow(X),2],y=Y[nrow(Y),2] ,textLegend,pos=4, cex=cex)
+
+  # Now other annotations: D-T:
+  rect(xleft=(2*x+leg/3)/2,ybottom=y-1, xright=(2*x+2*leg/3)/2, ytop=y-0.5, col="bisque4", border=NA)
+  text(x=X[nrow(X),2],y=Y[nrow(Y),2]-1,"Duplications",pos=4, cex=cex)
+  rect(xleft=(2*x+leg/3)/2,ybottom=y-2, xright=(2*x+2*leg/3)/2, ytop=y-1.5, col="coral3", border=NA)
+  text(x=X[nrow(X),2],y=Y[nrow(Y),2]-2,"Transfers",pos=4, cex=cex)
+
+  # Now other annotations: content
+  draw.circle(x=(2*x+leg/2)/2,y=y-3, 0.1, col="darkolivegreen1")
+  text(x=X[nrow(X),2],y=Y[nrow(Y),2]-3,"Content",pos=4, cex=cex)
+  # Now other annotations: origination
+  draw.circle(x=(2*x+leg/2)/2,y=y-4, 0.1, col="darkorchid3")
+  text(x=X[nrow(X),2],y=Y[nrow(Y),2]-4,"Originations",pos=4, cex=cex)
+}
+
+##################################
+##################################
+
+# functions to add edge labels
+# found in ape
+# Modified by me to tolerate width argument, and remove the frame 
+my.BOTHlabels <- function (text, sel, XX, YY, adj, frame, pch, thermo, pie, piecol, 
+    col, bg, horiz, width, height, ...) 
+{
+    if (missing(text)) 
+        text <- NULL
+    if (length(adj) == 1) 
+        adj <- c(adj, 0.5)
+    if (is.null(text) && is.null(pch) && is.null(thermo) && is.null(pie)) 
+        text <- as.character(sel)
+    frame <- match.arg(frame, c("rect", "circle", "none"))
+    args <- list(...)
+    CEX <- if ("cex" %in% names(args)) 
+        args$cex
+    else par("cex")
+    if (frame != "none" && !is.null(text)) {
+        if (frame == "rect") {
+            width <- strwidth(text, uniT = "inches", cex = CEX)
+            height <- strheight(text, uniT = "inches", cex = CEX)
+            if ("srt" %in% names(args)) {
+                args$srt <- args$srt%%360
+                if (args$srt == 90 || args$srt == 270) {
+                  tmp <- width
+                  width <- height
+                  height <- tmp
+                }
+                else if (args$srt != 0) 
+                  warning("only right angle rotation of frame is supported;\n         try  `frame = \"n\"' instead.\n")
+            }
+            width <- xinch(width)
+            height <- yinch(height)
+            xl <- XX - width * adj[1] - xinch(0.03)
+            xr <- xl + width + xinch(0.03)
+            yb <- YY - height * adj[2] - yinch(0.02)
+            yt <- yb + height + yinch(0.05)
+            rect(xl, yb, xr, yt, col = bg)
+        }
+        if (frame == "circle") {
+            radii <- 0.8 * apply(cbind(strheight(text, uniT = "inches", 
+                cex = CEX), strwidth(text, uniT = "inches", 
+                cex = CEX)), 1, max)
+            symbols(XX, YY, circles = radii, inches = max(radii), 
+                add = TRUE, bg = bg)
+        }
+    }
+    if (!is.null(thermo)) {
+        parusr <- par("usr")
+        if (is.null(width)) {
+            width <- CEX * (parusr[2] - parusr[1])
+            width <- if (horiz) 
+                width/15
+            else width/40
+        }
+        if (is.null(height)) {
+            height <- CEX * (parusr[4] - parusr[3])
+            height <- if (horiz) 
+                height/40
+            else height/15
+        }
+        if (is.vector(thermo)) 
+            thermo <- cbind(thermo, 1 - thermo)
+        thermo <- if (horiz) 
+            width * thermo
+        else height * thermo
+        if (is.null(piecol)) 
+            piecol <- rainbow(ncol(thermo))
+        if(height > 0) {
+          xl <- XX - width/2 + adj[1] - 0.5
+          xr <- xl + width
+          # yb <- YY - height/2 + adj[2] - 0.5 # My mod
+          yb <- YY + adj[2] - 0.5
+          yt <- yb + height
+        }
+       else {
+          xl <- XX - width/2 + adj[1] - 0.5
+          xr <- xl + width
+          # yb <- YY - height/2 + adj[2] - 0.5 # My mod
+          yb <- YY - adj[2] - 0.5
+          yt <- yb + height
+       }
+        if (horiz) {
+            rect(xl, yb, xl + thermo[, 1], yt, border = NA, col = piecol[1])
+            for (i in 2:ncol(thermo)) rect(xl + rowSums(thermo[, 
+                1:(i - 1), drop = FALSE]), yb, xl + rowSums(thermo[, 
+                1:i]), yt, border = NA, col = piecol[i])
+        }
+        else {
+            rect(xl, yb, xr, yb + thermo[, 1], border = NA, col = piecol[1])
+            for (i in 2:ncol(thermo)) rect(xl, yb + rowSums(thermo[, 
+                1:(i - 1), drop = FALSE]), xr, yb + rowSums(thermo[, 
+                1:i]), border = NA, col = piecol[i])
+        }
+        s <- apply(thermo, 1, function(xx) any(is.na(xx)))
+        xl[s] <- xr[s] <- NA
+        rect(xl, yb, xr, yt, border = NA)
+    }
+    if (!is.null(pie)) {
+        if (is.vector(pie)) 
+            pie <- cbind(pie, 1 - pie)
+        xrad <- CEX * diff(par("usr")[1:2])/50
+        xrad <- rep(xrad, length(sel))
+        XX <- XX + adj[1] - 0.5
+        YY <- YY + adj[2] - 0.5
+        for (i in seq_along(sel)) {
+            if (any(is.na(pie[i, ]))) 
+                next
+            floating.pie.asp(XX[i], YY[i], pie[i, ], radius = xrad[i], 
+                col = piecol)
+        }
+    }
+    if (!is.null(text)) 
+        text(XX, YY, text, adj = adj, col = col, ...)
+    if (!is.null(pch)) 
+        poinT(XX + adj[1] - 0.5, YY + adj[2] - 0.5, pch = pch, 
+            col = col, bg = bg, ...)
+}
+
+my.edgelabels<-function (text, edge, adj = c(0.5, 0.5), frame = "rect", pch = NULL, 
+    thermo = NULL, pie = NULL, piecol = NULL, col = "black", 
+    bg = "lightgreen", horiz = FALSE, width = NULL, height = NULL, 
+    date = NULL, ...) 
+{
+    lastPP <- get("last_plot.phylo", envir = .PlotPhyloEnv)
+    if (missing(edge)) {
+        sel <- 1:dim(lastPP$edge)[1]
+        subedge <- lastPP$edge
+    }
+    else {
+        sel <- edge
+        subedge <- lastPP$edge[sel, , drop = FALSE]
+    }
+    if (lastPP$type == "phylogram") {
+        if (lastPP$direction %in% c("rightwarD", "leftwarD")) {
+            XX <- (lastPP$xx[subedge[, 1]] + lastPP$xx[subedge[, 
+                2]])/2
+            YY <- lastPP$yy[subedge[, 2]]
+        }
+        else {
+            XX <- lastPP$xx[subedge[, 2]]
+            YY <- (lastPP$yy[subedge[, 1]] + lastPP$yy[subedge[, 
+                2]])/2
+        }
+    }
+    else {
+        XX <- (lastPP$xx[subedge[, 1]] + lastPP$xx[subedge[, 
+            2]])/2
+        YY <- (lastPP$yy[subedge[, 1]] + lastPP$yy[subedge[, 
+            2]])/2
+    }
+    if (!is.null(date)) 
+        XX[] <- max(lastPP$xx) - date
+    print("XX: ")
+    print(XX)
+    print("YY: ")
+    print(YY)
+    piecolD = "bisque4" 
+    piecolT = "coral3"  
+    print(">>>XX")
+    print(XX)
+    print(">>>YY")
+    print(YY)
+    print(">>>width")
+    print(width)
+    print(">>>height")
+    print(height)
+    maxHeight <- max(abs(height))
+    #We want the max height to be 0.6.
+    heightNorm <-  0.6 * height / maxHeight  
+    sapply(1:length(XX),function(i){
+      if (height[i] > 0) { 
+        print("height > 0")
+        rect(XX[i]-abs(heightNorm[i]/2), YY[i]+0.1, XX[i]+abs(heightNorm[i]/2), YY[i]+heightNorm[i]+0.1, border = NA, col=piecolD )
+      }else{ 
+        print("height < 0")
+        rect(XX[i]-abs(heightNorm[i]/2), YY[i]-0.1, XX[i]+abs(heightNorm[i]/2), YY[i]+heightNorm[i]-0.1, border = NA, col=piecolT ) 
+      }
+    })
+}
+
+
+my.edgelabelsSeparateDAndT<-function (Dvalues, Tvalues, text, edge, adj = c(0.5, 0.5), frame = "rect", pch = NULL, 
+    thermo = NULL, pie = NULL, piecol = NULL, col = "black", 
+    bg = "lightgreen", horiz = FALSE, width = NULL, height = NULL, 
+    date = NULL, ...) 
+{
+    lastPP <- get("last_plot.phylo", envir = .PlotPhyloEnv)
+    if (missing(edge)) {
+        sel <- 1:dim(lastPP$edge)[1]
+        subedge <- lastPP$edge
+    }
+    else {
+        sel <- edge
+        subedge <- lastPP$edge[sel, , drop = FALSE]
+    }
+    if (lastPP$type == "phylogram") {
+        if (lastPP$direction %in% c("rightwards", "leftwards")) {
+            XX <- (lastPP$xx[subedge[, 1]] + lastPP$xx[subedge[, 
+                2]])/2
+            YY <- lastPP$yy[subedge[, 2]]
+        }
+        else {
+            XX <- lastPP$xx[subedge[, 2]]
+            YY <- (lastPP$yy[subedge[, 1]] + lastPP$yy[subedge[, 
+                2]])/2
+        }
+    }
+    else {
+        XX <- (lastPP$xx[subedge[, 1]] + lastPP$xx[subedge[, 
+            2]])/2
+        YY <- (lastPP$yy[subedge[, 1]] + lastPP$yy[subedge[, 
+            2]])/2
+    }
+    if (!is.null(date)) 
+        XX[] <- max(lastPP$xx) - date
+    print("XX: ")
+    print(XX)
+    print("YY: ")
+    print(YY)
+    piecolD = "bisque4" #brewer.pal(1, "YlOrRd")
+    piecolT = "coral3"  #brewer.pal(1, "YlOrRd")
+    print(">>>XX")
+    print(XX)
+    print(">>>YY")
+    print(YY)
+    maxHeight <- max(abs(c(Dvalues, Tvalues)))
+    #We want the max height to be 0.6.
+    DvaluesNorm <-  0.6 * Dvalues / maxHeight 
+    TvaluesNorm <- 0.6 * Tvalues / maxHeight 
+    sapply(1:length(XX),function(i){
+      rect(XX[i]-abs(DvaluesNorm[i]/2), YY[i]+0.1, XX[i]+abs(DvaluesNorm[i]/2), YY[i]+DvaluesNorm[i]+0.1, border = NA, col=piecolD )
+      rect(XX[i]-abs(TvaluesNorm[i]/2), YY[i]-0.1, XX[i]+abs(TvaluesNorm[i]/2), YY[i]-TvaluesNorm[i]-0.1, border = NA, col=piecolT ) 
+    })
+}
+
+
+
+
+
+########################################################
+########################################################
+plotDTLThermoOri<-function(treeDTL, xDTL,  mode=c("edges","tips","nodes"),palette="rainbow",legend=TRUE,xlims=NULL,...){
+  ############################
+  #DTL matrix
+  # For all nodes
+  allLosDTL <- xDTL$L
+  allDupsDTL <- xDTL$D
+  allTrasDTL <- xDTL$Tra
+  allOriDTL <- xDTL$Os
+    
+  sizer <- 0.4
+  
+  #For internal nodes
+  dupDTL = xDTL$D[which(xDTL$internal==TRUE)]
+  traDTL = xDTL$Tra[which(xDTL$internal==TRUE)] 
+  losDTL = xDTL$L[which(xDTL$internal==TRUE)]
+  conDTL = sqrt(xDTL$copies[which(xDTL$internal==TRUE)])
+  oriDTL = sqrt(xDTL$Os[which(xDTL$internal==TRUE)])
+
+  
+  #For tips
+  duptDTL = xDTL$D[which(xDTL$internal==FALSE)]
+  tratDTL = xDTL$Tra[which(xDTL$internal==FALSE)] 
+  lostDTL = xDTL$L[which(xDTL$internal==FALSE)]
+  contDTL = sqrt(xDTL$copies[which(xDTL$internal==FALSE)])
+  oritDTL = sqrt(xDTL$Os[which(xDTL$internal==FALSE)])
+
+    print("oritDTL")
+    print(oritDTL)
+  
+############################
+# Useful variables
+  maxdup <- max(xDTL$D)
+  maxtra <- max(xDTL$Tra)  
+  maxlos <- max(xDTL$L)
+  maxcon <- sqrt(max(xDTL$copies))
+  allLos <- allLosDTL
+
+############################
+# Normalization
+
+  d.valueDTL = 0.3+allDupsDTL/maxdup
+  t.valueDTL = 0.3+allTrasDTL/maxtra
+  d.valueDTLd_t = (allDupsDTL - allTrasDTL) / max(allDupsDTL - allTrasDTL)
+  
+  con.valueDTL=sizer*(0.0+conDTL/maxcon)
+  cont.valueDTL=sizer*(0.0+contDTL/maxcon)
+
+  # We size the originations same as the counts
+  ori.valueDTL=sizer*(0.0+oriDTL/maxcon)
+  orit.valueDTL=sizer*(0.0+oritDTL/maxcon)
+  
+
+  pies <- rep(1, length(con.valueDTL)+1)
+  piest <- rep(1, length(cont.valueDTL)+1)
+  
+  ############################
+  # Starting the plotting stuff
+  
+  # Defining colors
+	if(hasArg(tol)){tol<-list(...)$tol
+	}else{ tol<-1e-6}
+	if(palette=="heat.colors") cols<-heat.colors(n=1000)
+	if(palette=="gray") cols<-gray(1000:1/1000)
+	if(palette=="rainbow")	cols<-rainbow(1000,start=0.7,end=0) # blue->red
+	if(is.null(xlims)) xlims<-range(allLos)+c(-tol,tol)
+	breaks<-0:1000/1000*(xlims[2]-xlims[1])+xlims[1]
+	whichColor<-function(p,cols,breaks){
+		i<-1
+		while(p>=breaks[i]&&p>breaks[i+1]) i<-i+1
+		cols[i]
+	}
+
+  colorsDTL<-sapply(allLosDTL, whichColor, cols=cols, breaks=breaks)
+  
+  piecolD = "bisque4" #brewer.pal(1, "YlOrRd")
+  piecolT = "coral3" #brewer.pal(1, "YlOrRd")
+  piecolCon = "darkolivegreen1" #brewer.pal(1, "YlOrRd")
+  piecolOri = "darkorchid3"
+############################
+par (mar=c(0,0,0,0),mfrow=c(1,1))
+
+  # DTL Tree plotting
+	par(lend=2)
+  print ("XXX TREE 1")
+	plot.phylo(treeDTL,no.margin=TRUE,edge.width=3,edge.color=colorsDTL,label.offset=0.02*max(nodeHeights(treeDTL)),lend=2,new=FALSE, y.lim=c(1,length(treeDTL$tip.label)*1.2), cex=0.6)
+	
+my.edgelabelsSeparateDAndT(d.valueDTL, t.valueDTL, thermo=pies, horiz=F, col = piecolD, piecol=piecolD, pos=4, adj = c(0.45, 0.85), cex = d.valueDTLd_t, bg=rgb(0,0,0,0), frame="none", height= d.valueDTLd_t/10, width=d.valueDTLd_t/10) # Dup-T values as a thermo
+
+#Content pie plots
+  # Internal nodes
+  nodelabels(pie=pies, horiz=T, col = piecolCon, piecol=piecolCon, adj = c(0.5, 0.5), cex = con.valueDTL, height= 0, width=0.5) # Content values  as a pie
+  # Tip nodes
+  tiplabels(pie=piest, horiz=T, col = piecolCon, piecol=piecolCon, adj = c(0.5, 0.5), cex = cont.valueDTL, height= 0, width=0.5) # Content values  as a pie
+
+#Ori pie plots
+  # Internal nodes
+  nodelabels(pie=pies, horiz=T, col = piecolOri, piecol=piecolOri, adj = c(0.5, 0.5), cex = ori.valueDTL, height= 0, width=0.5) # Content values  as a pie
+  # Tip nodes
+  tiplabels(pie=piest, horiz=T, col = piecolOri, piecol=piecolOri, adj = c(0.5, 0.5), cex = orit.valueDTL, height= 0, width=0.5) # Content values  as a pie
+  
+  
+    	if(legend==TRUE&&is.logical(legend)) legend<-round(0.3*max(nodeHeights(treeDTL)),2)
+	if(legend){
+		if(hasArg(title)) title<-list(...)$title
+		else title<-NULL
+		if(hasArg(digits)) digits<-list(...)$digits
+		else digits<-1
+		my.add.color.bar.legend("Losses", legend,cols,title,xlims,digits,prompt=FALSE, 0.0393, length(treeDTL$tip.label)*1.15)
+	}
+}
+
+#################################
+plotAllVariables <- function(dDTL, labelsDTL, treeDTL, name){ 
+  # Reorganize the rows so that the tree and the DTL tables are in the same order
+  tmp <- dDTL[unlist(sapply(labelsDTL$label,function(z)which(dDTL$branch==z))),]
+  rownames(tmp) <- labelsDTL$label
+  tmp_dtl <- tmp[sapply(treeDTL$edge[,2],function(z)which(rownames(tmp)==labelsDTL$label[z])),]
+
+   plotDTLThermoOri(treeDTL, tmp_dtl, name, palette="rainbow")
+
+}
+```
+
+
+## Now, a function to reformat and normalize a table that has just been read.
+
+```{r, echo=T}
+reformatTable <- function(dt, labelsdt){ 
+  #Renaming some columns
+dt$branch <- dt$name
+dt$Tra <- dt$Ts
+dt$D <- dt$Ds
+dt$L <- dt$Ls
+dt$branch <- as.character(dt$branch)
+dt$normD <- dt$D/(dt$D+dt$Tra)
+dt$normT <- dt$Tra/(dt$D+dt$Tra)
+dt$normL <- dt$L/(dt$D+dt$Tra)
+#Change in copy number minus duplications
+dt$deltaNorm <- dt$copies - dt$D +dt$L
+# Fraction of new genes due to transfer
+dt$transNormbyGenSize <- dt$Tra / dt$copies
+
+#Now, we reorder d according to node ID
+dt<-merge(dt, labelsdt, by.x="branch", by.y="label")
+dt$ID<-as.numeric(as.character(dt$ID))
+dt<-dt[order(dt$ID),]
+#Internal node or not?
+dt$internal<-lapply(dt$branch, function (x) {if (length(grep("[a-zA-Z]",as.character(x))) == 1) {return (FALSE)} else {return (TRUE)}})
+return (dt)
+}
+
+```
+
+## Reading the tree
+
+```{r, echo=T}
+# First, we read the tree
+treeDTL<-read.tree("testData/test.tree")
+treeDTL$edge.length = scaler*treeDTL$edge.length
+
+
+# Link between internal node iD in R and the node names/iD used in the table
+tipNames<-treeDTL$tip.label
+nodeNames<-treeDTL$node.label
+tipAndNodeNames <- c(tipNames, nodeNames)
+
+labels <- rbind(cbind(1:length(treeDTL$tip.label),treeDTL$tip.label),cbind((length(treeDTL$tip.label)+1):(length(treeDTL$tip.label) + length(treeDTL$node.label)),treeDTL$node.label))
+colnames(labels) <- c("ID","label")
+labelsDTL <- as.data.frame(labels)
+```
+
+
+## Reading the data table
+
+```{r, echo=T}
+dDTL<-read.table("testData/test.txt", h=T, comment.char="")
+
+dDTL<-reformatTable(dDTL, labelsDTL)
+
+```
+
+## Getting the link between the short names and the full names
+
+```{r}
+labnam <- read.table("testData/species_namesOK.txt", fill=F, h=T, sep=",", stringsAsFactors=F, quote="")
+labnam$Code <- as.character(labnam$Code)
+labnam$LongName <- as.character(labnam$LongName)
+splittedNames <- lapply(labnam$LongName, function(x) strsplit(x, " ")[[1]])
+labnam$LongName<- lapply(splittedNames, function(x) paste(x[1], " ", (x[2]), " ", sep=""))
+rownames(labnam) <- labnam$Code
+treeDTL$tip.label<-labnam[treeDTL$tip.label,2]
+```
+
+## Altering the gene content estimates so that they are corrected for the genes that have been lost in all descendant genomes
+
+```{r}
+correct <- read.table("testData/test.ext", h=F)
+correct$V1 <- as.character(correct$V1)
+names(correct) <- c("branch", "correction")
+dDTL<-merge(dDTL, correct, by.x="branch", by.y="branch", all.x=T)
+dDTL$correction[which(is.na(dDTL$correction))] <- 1
+dDTL$copies <- dDTL$copies / dDTL$correction
+```
+
+## Plotting along the tree:
+
+```{r, echo=T, fig.width=6, fig.height=7}
+
+print (summary(dDTL$Os))
+
+
+pdf(file="plotODTL.pdf", width=7, height=14 )
+plotAllVariables(dDTL, labelsDTL, treeDTL, "Genome content and col")
+dev.off()
+
+```
+

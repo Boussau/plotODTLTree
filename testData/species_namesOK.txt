@@ -1,0 +1,61 @@
+Code,LongName,Group
+SagI15,SAG I15,SAG
+Macid,Micrarchaeum acidiphilum,DPANN
+SagK09,SAG K09,SAG
+SagN19,SAG N19,SAG
+DUSEL3,Iainarchaeum andersonii (DUSEL3),DPANN
+AR10,Diapherotrites archaeon AR10,DPANN
+Nsali,Nanosalinarum sp. J07AB56,DPANN
+Nj743,Nanosalina sp. J07AB43,DPANN
+Hredi,Haloredivivus sp. G17,DPANN
+SagF11,SAG F11,SAG
+AR5,Aenigmarchaeon AR5,DPANN
+Pacid,Parvarchaeum acidophilus,DPANN
+Nnst1,Nanoarchaeota Nst1,DPANN
+Nequi,Nanoarchaeum equitans,DPANN
+DUSEL4,Woesearchaeon (DUSEL4),DPANN
+AR20,Woesearchaeon AR20,DPANN
+AR4,Woesearchaeon AR4,DPANN
+AR15,Woesearchaeon AR15,DPANN
+AR6,Pacearchaeon AR6,DPANN
+SagD05,SAG D05,SAG
+AR1,Pacearchaeon AR1,DPANN
+AR13,Pacearchaeon AR13,DPANN
+Tkoda,Thermococcus kodakarensis,Euryarchaeota
+Pfuri,Pyrococcus furiosus,Euryarchaeota
+Lokiarch,Lokiarchaeum,Lokiarchaeota
+Kcryp,Korarchaeum cryptofilum,Korarchaeota
+ThaumE09,Thaumarchaeon E09,Thaumarchaeota
+SagE04,SAG E04,SAG
+Ngarg,Nitrososphaera gargensis,Thaumarchaeota
+Sag023,SAG 023,SAG
+Nmari,Nitrosopumilus maritimus,Thaumarchaeota
+Csymb,Cenarchaeum symbiosum,Thaumarchaeota
+SagF17,SAG F17,SAG
+SagJ15,SAG J15,SAG
+Csubt,Caldiarchaeum subterraneum,Aigarchaeota
+CrenYNPFFA,Crenarchaeon YNPFFA,Crenarchaeota
+Tpend,Thermofilum pendens,Crenarchaeota
+Paero,Pyrobaculum aerophilum,Crenarchaeota
+Cmaqu,Caldivirga maquilingensis,Crenarchaeota
+Smari,Staphylothermus maritimus,Crenarchaeota
+Ihosp,Ignicoccus hospitalis,Crenarchaeota
+Ssolf,Sulfolobus solfataricus,Crenarchaeota
+Iaggr,Ignisphaera aggregans,Crenarchaeota
+Fervi,Fervidicoccus fontis,Crenarchaeota
+Hbuty,Hyperthermus butylicus,Crenarchaeota
+Apern,Aeropyrum pernix,Crenarchaeota
+Mtherm,Methanothermobacter thermautotrophicus,Euryarchaeota
+Mkand,Methanopyrus kandleri,Euryarchaeota
+Mjann,Methanococcus jannaschii,Euryarchaeota
+Mpalu,Methanocella paludicola,Euryarchaeota
+Mmaze,Methanosarcina mazei,Euryarchaeota
+Mhung,Methanospirillum hungatei,Euryarchaeota
+Hvolc,Haloferax volcanii,Euryarchaeota
+Hmari,Haloarcula marismortui,Euryarchaeota
+Afulg,Archaeoglobus fulgidus,Euryarchaeota
+TplN05,Thermoplasmatales archaeon AB-539-N05,Euryarchaeota
+UnEury2,Uncultivated Euryarchaeon,Euryarchaeota
+Mlumi,Methanomassiliicoccus luminyensis,Euryarchaeota
+Thvol,Thermoplasma volcanium,Euryarchaeota
+Aboon,Aciduliprofundum boonei,Euryarchaeota
